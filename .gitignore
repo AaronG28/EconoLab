@@ -1,0 +1,22 @@
+
+# Entorno virtual
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# Archivos originales y procesados
+data/raw/*
+data/processed/*
+
+# Mantener carpetas vacías en Git
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Archivos temporales y configuración privada
+*.log
+.env
