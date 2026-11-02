@@ -42,3 +42,30 @@ def test_proceso_completo(tmp_path):
     assert proceso.sesion.original.equals(
         pd.read_csv(archivo)
     )
+
+def test_previsualizar_recomendacion_no_modifica_datos(tmp_path):
+
+    import pandas as pd
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100]
+    })
+
+    archivo = tmp_path / "datos.csv"
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    resultado = proceso.previsualizar_recomendacion(
+        "eliminar_duplicados"
+    )
+
+    # Comprobamos la previsualización
+    assert resultado["filas_antes"] == 3
+    assert resultado["filas_despues"] == 2
+
+    # Comprobamos que los datos reales no han cambiado
+    estado = proceso.obtener_estado()
+
+    assert estado["filas"] == 3

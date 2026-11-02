@@ -134,3 +134,6 @@ class ProcesoPreparacion:
         self.actualizar_analisis()
 
         return mensajes
+
+    def previsualizar_recomendacion(self, operacion):
+        return self.sesion.previsualizar_operacion(operacion)

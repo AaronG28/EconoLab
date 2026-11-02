@@ -77,6 +77,61 @@ class SesionLimpieza:
 
         return f"Se eliminaron {cantidad} filas duplicadas."
 
+    def previsualizar_operacion(self, operacion):
+
+        # Trabajamos sobre una copia temporal
+        datos_previos = self.actual.copy(deep=True)
+
+        # Preparamos el resultado sin modificar los datos actuales
+        if operacion == "eliminar_filas_vacias":
+
+            datos_nuevos = datos_previos.dropna(how="all").copy()
+
+        elif operacion == "eliminar_columnas_vacias":
+
+            datos_nuevos = datos_previos.dropna(
+                axis=1,
+                how="all"
+            ).copy()
+
+        elif operacion == "normalizar_nombres_columnas":
+
+            nuevos_nombres = [
+                columna.strip() if isinstance(columna, str) else columna
+                for columna in datos_previos.columns
+            ]
+
+            if len(set(nuevos_nombres)) != len(nuevos_nombres):
+                return {
+                    "valido": False,
+                    "mensaje": "La operación produciría nombres duplicados."
+                }
+
+            datos_nuevos = datos_previos.copy()
+            datos_nuevos.columns = nuevos_nombres
+
+        elif operacion == "eliminar_duplicados":
+
+            datos_nuevos = datos_previos.drop_duplicates().copy()
+
+        else:
+
+            raise ValueError(
+                f"Operación no reconocida: {operacion}"
+            )
+
+        # Devolvemos información comparativa
+        return {
+            "valido": True,
+            "operacion": operacion,
+            "filas_antes": len(datos_previos),
+            "filas_despues": len(datos_nuevos),
+            "columnas_antes": len(datos_previos.columns),
+            "columnas_despues": len(datos_nuevos.columns),
+            "datos_antes": datos_previos,
+            "datos_despues": datos_nuevos
+        }
+
     def deshacer(self):
 
         if not self.historial:
