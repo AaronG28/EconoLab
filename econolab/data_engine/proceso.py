@@ -1,0 +1,81 @@
+
+from econolab.data_engine.importador import importar_archivo
+from econolab.data_engine.diagnostico import diagnosticar_datos
+from econolab.data_engine.recomendaciones import generar_recomendaciones
+from econolab.data_engine.limpieza import SesionLimpieza
+
+
+class ProcesoPreparacion:
+
+    def __init__(self, ruta):
+
+        # 1. Importar el archivo
+        self.archivo = importar_archivo(ruta)
+
+        # 2. Crear una sesión de limpieza
+        self.sesion = SesionLimpieza(
+            self.archivo["datos"]
+        )
+
+        # 3. Analizar los datos iniciales
+        self.actualizar_analisis()
+
+    def actualizar_analisis(self):
+
+        # Diagnosticar el estado actual
+        self.diagnostico = diagnosticar_datos(
+            self.sesion.actual
+        )
+
+        # Generar recomendaciones
+        self.recomendaciones = generar_recomendaciones(
+            self.sesion.actual,
+            self.diagnostico
+        )
+
+    def obtener_estado(self):
+
+        return {
+            "archivo": self.archivo["nombre"],
+            "filas": len(self.sesion.actual),
+            "columnas": len(self.sesion.actual.columns),
+            "datos": self.sesion.actual.copy(deep=True),
+            "diagnostico": self.diagnostico,
+            "recomendaciones": self.recomendaciones
+        }
+
+    def aplicar_automaticas(self):
+
+        mensajes = []
+
+        # Trabajamos sobre una copia de las recomendaciones
+        recomendaciones = self.recomendaciones.copy()
+
+        for recomendacion in recomendaciones:
+
+            if not recomendacion["automatico"]:
+                continue
+
+            problema = recomendacion["problema"]
+
+            if problema == "Filas completamente vacías":
+
+                mensaje = self.sesion.eliminar_filas_vacias()
+
+            elif problema == "Columnas completamente vacías":
+
+                mensaje = self.sesion.eliminar_columnas_vacias()
+
+            elif problema == "Espacios en nombres de columnas":
+
+                mensaje = self.sesion.normalizar_nombres_columnas()
+
+            else:
+                continue
+
+            mensajes.append(mensaje)
+
+        # Volver a analizar los datos después de los cambios
+        self.actualizar_analisis()
+
+        return mensajes
