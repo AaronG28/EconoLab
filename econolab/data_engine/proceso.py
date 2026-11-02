@@ -3,6 +3,7 @@ from econolab.data_engine.importador import importar_archivo
 from econolab.data_engine.diagnostico import diagnosticar_datos
 from econolab.data_engine.recomendaciones import generar_recomendaciones
 from econolab.data_engine.limpieza import SesionLimpieza
+from econolab.data_engine.decisiones import GestorDecisiones
 
 
 class ProcesoPreparacion:
@@ -19,6 +20,11 @@ class ProcesoPreparacion:
 
         # 3. Analizar los datos iniciales
         self.actualizar_analisis()
+
+        # 4. Crear un gestor de decisiones
+        self.gestor_decisiones = GestorDecisiones(
+            self.recomendaciones
+        )
 
     def actualizar_analisis(self):
 
@@ -79,3 +85,16 @@ class ProcesoPreparacion:
         self.actualizar_analisis()
 
         return mensajes
+
+    def aceptar_recomendacion(self, identificador):
+        self.gestor_decisiones.aceptar(identificador)
+
+    def rechazar_recomendacion(self, identificador):
+        self.gestor_decisiones.rechazar(identificador)
+
+    def posponer_recomendacion(self, identificador):
+        self.gestor_decisiones.posponer(identificador)
+
+    def obtener_decisiones(self):
+        return self.gestor_decisiones.obtener_decisiones()
+    
