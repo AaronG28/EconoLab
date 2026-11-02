@@ -97,4 +97,40 @@ class ProcesoPreparacion:
 
     def obtener_decisiones(self):
         return self.gestor_decisiones.obtener_decisiones()
-    
+
+    def ejecutar_recomendaciones_aceptadas(self):
+
+        mensajes = []
+
+        decisiones = self.obtener_decisiones()
+
+        for decision in decisiones:
+
+            if decision["estado"] != "aceptada":
+                continue
+
+            identificador = decision["id"]
+            problema = decision["recomendacion"]["problema"]
+
+            if problema == "Filas completamente vacías":
+                mensaje = self.sesion.eliminar_filas_vacias()
+            elif problema == "Columnas completamente vacías":
+                mensaje = self.sesion.eliminar_columnas_vacias()
+            elif problema == "Espacios en nombres de columnas":
+                mensaje = self.sesion.normalizar_nombres_columnas()
+            elif problema == "Filas duplicadas":
+                mensaje = self.sesion.eliminar_duplicados()
+            else:
+                mensajes.append(
+                    f"No existe una operacion implemetada para: {problema}"
+                )
+
+            # Registrar la operación como ejecutada
+            self.gestor_decisiones.marcar_ejecutada(identificador)
+
+            mensajes.append(mensaje)
+
+        # Actaulizar el diagnostico y las recomendaciones
+        self.actualizar_analisis()
+
+        return mensajes

@@ -67,6 +67,16 @@ class SesionLimpieza:
 
         return "Nombres de columnas normalizados."
 
+    def eliminar_duplicados(self):
+        cantidad = int(self.actual.duplicated().sum())
+
+        if cantidad == 0:
+            return "No hay filas duplicadas."
+        self._guardar_estado("Eliminar filas duplicadas")
+        self.actual = self.actual.drop_duplicates().copy()
+
+        return f"Se eliminaron {cantidad} filas duplicadas."
+
     def deshacer(self):
 
         if not self.historial:

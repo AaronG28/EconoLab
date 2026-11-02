@@ -5,7 +5,8 @@ class GestorDecisiones:
         "pendiente",
         "aceptada",
         "rechazada",
-        "pospuesta"
+        "pospuesta",
+        "ejecutada"
     }
 
     def __init__(self, recomendaciones):
@@ -56,3 +57,15 @@ class GestorDecisiones:
             }
             for decision in self.decisiones.values()
         ]
+
+    def marcar_ejecutada(self, identificador):
+
+        if identificador not in self.decisiones:
+            raise KeyError(
+                f"No existe la recomendación con ID {identificador}"
+            )
+        if self.decisiones[identificador]["estado"] != "aceptada":
+            raise ValueError(
+                "Solo se puede marcar como ejecutada una recomendación aceptada."
+            )
+        self.decisiones[identificador]["estado"] = "ejecutada"
