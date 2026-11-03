@@ -58,6 +58,22 @@ class GestorDecisiones:
             for decision in self.decisiones.values()
         ]
 
+    def obtener_decision(self, identificador):
+        """
+        Devuelve una decision concreta a partir de su ID.
+        """
+        if identificador not in self.decisiones:
+            raise KeyError(
+                f"No existe la recomendación con ID {identificador}"
+            )
+
+        decision = self.decisiones[identificador]
+        return {
+            "id": decision["id"],
+            "recomendacion": decision["recomendacion"].copy(),
+            "estado": decision["estado"]
+        }
+
     def marcar_ejecutada(self, identificador):
 
         if identificador not in self.decisiones:

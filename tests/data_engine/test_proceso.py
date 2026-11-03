@@ -57,9 +57,7 @@ def test_previsualizar_recomendacion_no_modifica_datos(tmp_path):
 
     proceso = ProcesoPreparacion(archivo)
 
-    resultado = proceso.previsualizar_recomendacion(
-        "eliminar_duplicados"
-    )
+    resultado = proceso.previsualizar_recomendacion(1)
 
     # Comprobamos la previsualización
     assert resultado["filas_antes"] == 3
@@ -69,3 +67,22 @@ def test_previsualizar_recomendacion_no_modifica_datos(tmp_path):
     estado = proceso.obtener_estado()
 
     assert estado["filas"] == 3
+
+def test_no_previsualizar_recomendacion_rechazada(tmp_path):
+
+    import pytest
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100]
+    })
+
+    archivo = tmp_path / "datos.csv"
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    proceso.rechazar_recomendacion(1)
+
+    with pytest.raises(ValueError):
+        proceso.previsualizar_recomendacion(1)

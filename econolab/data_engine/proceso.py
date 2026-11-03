@@ -5,6 +5,12 @@ from econolab.data_engine.recomendaciones import generar_recomendaciones
 from econolab.data_engine.limpieza import SesionLimpieza
 from econolab.data_engine.decisiones import GestorDecisiones
 
+OPERACIONES_DISPONIBLES = {
+    "Filas completamente vacías": "eliminar_filas_vacias",
+    "Columnas completamente vacías": "eliminar_columnas_vacias",
+    "Espacios en nombres de columnas": "normalizar_nombres_columnas",
+    "Filas duplicadas": "eliminar_duplicados"
+}
 
 class ProcesoPreparacion:
 
@@ -135,5 +141,26 @@ class ProcesoPreparacion:
 
         return mensajes
 
-    def previsualizar_recomendacion(self, operacion):
+    def previsualizar_recomendacion(self, identificador):
+        """
+        Previsualiza una recomendacion concreta mediante su ID.
+        No modifica los datos ni ejecuta la operación.
+        """
+
+        decision = self.gestor_decisiones.obtener_decision(identificador)
+
+        if decision["estado"] not in ("pendiente", "aceptada"):
+            raise ValueError(
+                "Solo se pueden previsualizar recomendaciones pendientes o aceptadas."
+            )
+
+        problema = decision["recomendacion"]["problema"]
+        operacion = OPERACIONES_DISPONIBLES.get(problema)
+
+        if operacion is None:
+            return {
+                "valido": False,
+                "mensaje": f"No existe una operación implementada para: {problema}"
+            }
+        
         return self.sesion.previsualizar_operacion(operacion)

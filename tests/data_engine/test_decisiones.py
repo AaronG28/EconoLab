@@ -1,6 +1,5 @@
 
 import pytest
-
 from econolab.data_engine.decisiones import GestorDecisiones
 
 
@@ -79,3 +78,34 @@ def test_identificador_inexistente(gestor):
 
     with pytest.raises(KeyError):
         gestor.aceptar(99)
+
+def test_obtener_decision_por_id():
+    recomendaciones = [
+        {"problema": "Filas duplicadas"}
+    ]
+
+    gestor = GestorDecisiones(recomendaciones)
+
+    decision = gestor.obtener_decision(1)
+
+    assert decision["id"] == 1
+    assert decision["recomendacion"]["problema"] == "Filas duplicadas"
+    assert decision["estado"] == "pendiente"
+
+
+def test_obtener_decision_id_inexistente():
+    gestor = GestorDecisiones([])
+
+    with pytest.raises(KeyError):
+        gestor.obtener_decision(99)
+
+
+def test_obtener_decision_no_modifica_estado_interno():
+    gestor = GestorDecisiones([
+        {"problema": "Filas duplicadas"}
+    ])
+
+    decision = gestor.obtener_decision(1)
+    decision["estado"] = "ejecutada"
+
+    assert gestor.obtener_decision(1)["estado"] == "pendiente"
