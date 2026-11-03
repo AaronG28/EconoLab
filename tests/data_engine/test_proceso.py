@@ -86,3 +86,44 @@ def test_no_previsualizar_recomendacion_rechazada(tmp_path):
 
     with pytest.raises(ValueError):
         proceso.previsualizar_recomendacion(1)
+
+def test_recomendacion_obsoleta_y_nuevo_id(tmp_path):
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100]
+    })
+
+    archivo = tmp_path / "datos.csv"
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    # Aceptar la recomendación inicial
+    proceso.aceptar_recomendacion(1)
+
+    # Resolver el problema de los duplicados
+    proceso.sesion.eliminar_duplicados()
+    proceso.actualizar_analisis()
+
+    # Comprobar que la recomendación anterior es obsoleta
+    decision_anterior = proceso.gestor_decisiones.obtener_decision(1)
+
+    assert decision_anterior["estado"] == "obsoleta"
+
+    # Volver a introducir una fila duplicada
+    proceso.sesion.actual = pd.concat(
+        [proceso.sesion.actual, proceso.sesion.actual.iloc[[0]]],
+        ignore_index=True
+    )
+
+    proceso.actualizar_analisis()
+
+    # Comprobar que se crea una recomendación nueva
+    decisiones = proceso.obtener_decisiones()
+
+    assert len(decisiones) == 2
+    assert decisiones[0]["id"] == 1
+    assert decisiones[0]["estado"] == "obsoleta"
+    assert decisiones[1]["id"] == 2
+    assert decisiones[1]["estado"] == "pendiente"

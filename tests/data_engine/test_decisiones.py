@@ -109,3 +109,57 @@ def test_obtener_decision_no_modifica_estado_interno():
     decision["estado"] = "ejecutada"
 
     assert gestor.obtener_decision(1)["estado"] == "pendiente"
+
+def test_agregar_recomendaciones_conserva_ids():
+    gestor = GestorDecisiones([
+        {"problema": "Filas duplicadas"}
+    ])
+
+    nuevos_ids = gestor.agregar_recomendaciones([
+        {"problema": "Valores ausentes"},
+        {"problema": "Columnas vacías"}
+    ])
+
+    assert nuevos_ids == [2, 3]
+
+    decisiones = gestor.obtener_decisiones()
+
+    assert len(decisiones) == 3
+    assert decisiones[0]["estado"] == "pendiente"
+    assert decisiones[1]["recomendacion"]["problema"] == "Valores ausentes"
+    assert decisiones[2]["recomendacion"]["problema"] == "Columnas vacías"
+
+
+def test_agregar_recomendaciones_no_reutiliza_ids():
+    gestor = GestorDecisiones([
+        {"problema": "Filas duplicadas"}
+    ])
+
+    gestor.aceptar(1)
+
+    gestor.agregar_recomendaciones([
+        {"problema": "Valores ausentes"}
+    ])
+
+    assert gestor.obtener_decision(1)["estado"] == "aceptada"
+    assert gestor.obtener_decision(2)["estado"] == "pendiente"
+
+def test_marcar_obsoleta_recomendacion_pendiente():
+    gestor = GestorDecisiones([
+        {"problema": "Filas duplicadas"}
+    ])
+
+    gestor.marcar_obsoleta(1)
+
+    assert gestor.obtener_decision(1)["estado"] == "obsoleta"
+
+
+def test_marcar_obsoleta_no_permite_decision_rechazada():
+    gestor = GestorDecisiones([
+        {"problema": "Filas duplicadas"}
+    ])
+
+    gestor.rechazar(1)
+
+    with pytest.raises(ValueError):
+        gestor.marcar_obsoleta(1)

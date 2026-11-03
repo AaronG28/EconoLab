@@ -1,9 +1,11 @@
 
+
 from econolab.data_engine.importador import importar_archivo
 from econolab.data_engine.diagnostico import diagnosticar_datos
 from econolab.data_engine.recomendaciones import generar_recomendaciones
 from econolab.data_engine.limpieza import SesionLimpieza
 from econolab.data_engine.decisiones import GestorDecisiones
+
 
 OPERACIONES_DISPONIBLES = {
     "Filas completamente vacías": "eliminar_filas_vacias",
@@ -12,25 +14,22 @@ OPERACIONES_DISPONIBLES = {
     "Filas duplicadas": "eliminar_duplicados"
 }
 
+
 class ProcesoPreparacion:
 
     def __init__(self, ruta):
 
-        # 1. Importar el archivo
         self.archivo = importar_archivo(ruta)
+        self.sesion = SesionLimpieza(self.archivo["datos"])
 
-        # 2. Crear una sesión de limpieza
-        self.sesion = SesionLimpieza(
-            self.archivo["datos"]
-        )
+        # Inicializar el gestor antes del primer análisis
+        self.gestor_decisiones = GestorDecisiones([])
 
-        # 3. Analizar los datos iniciales
+        # Registrar los problemas del análisis anterior
+        self._problemas_anteriores = set()
+
+        # Generar el diagnóstico y las recomendaciones iniciales
         self.actualizar_analisis()
-
-        # 4. Crear un gestor de decisiones
-        self.gestor_decisiones = GestorDecisiones(
-            self.recomendaciones
-        )
 
     def actualizar_analisis(self):
 
@@ -39,11 +38,44 @@ class ProcesoPreparacion:
             self.sesion.actual
         )
 
-        # Generar recomendaciones
+        # Generar las recomendaciones actuales
         self.recomendaciones = generar_recomendaciones(
             self.sesion.actual,
             self.diagnostico
         )
+
+        # Identificar los problemas que siguen presentes
+        problemas_actuales = {
+            recomendacion["problema"]
+            for recomendacion in self.recomendaciones
+        }
+
+        # Marcar como obsoletas las recomendaciones que ya no son relevantes
+        for decision in self.gestor_decisiones.obtener_decisiones():
+
+            problema = decision["recomendacion"]["problema"]
+
+            if (
+                decision["estado"] in ("pendiente", "aceptada", "pospuesta")
+                and problema not in problemas_actuales
+            ):
+                self.gestor_decisiones.marcar_obsoleta(
+                    decision["id"])
+
+        # Detectar únicamente problemas nuevos
+        nuevas_recomendaciones = [
+            recomendacion
+            for recomendacion in self.recomendaciones
+            if recomendacion["problema"] not in self._problemas_anteriores
+        ]
+
+        # Incorporar las nuevas recomendaciones al gestor
+        self.gestor_decisiones.agregar_recomendaciones(
+            nuevas_recomendaciones
+        )
+
+        # Actualizar los problemas detectados
+        self._problemas_anteriores = problemas_actuales
 
     def obtener_estado(self):
 
@@ -60,7 +92,7 @@ class ProcesoPreparacion:
 
         mensajes = []
 
-        # Trabajamos sobre una copia de las recomendaciones
+        # Trabajar sobre una copia de las recomendaciones
         recomendaciones = self.recomendaciones.copy()
 
         for recomendacion in recomendaciones:
@@ -69,25 +101,17 @@ class ProcesoPreparacion:
                 continue
 
             problema = recomendacion["problema"]
+            operacion = OPERACIONES_DISPONIBLES.get(problema)
 
-            if problema == "Filas completamente vacías":
-
-                mensaje = self.sesion.eliminar_filas_vacias()
-
-            elif problema == "Columnas completamente vacías":
-
-                mensaje = self.sesion.eliminar_columnas_vacias()
-
-            elif problema == "Espacios en nombres de columnas":
-
-                mensaje = self.sesion.normalizar_nombres_columnas()
-
-            else:
+            if operacion is None:
                 continue
+
+            metodo = getattr(self.sesion, operacion)
+            mensaje = metodo()
 
             mensajes.append(mensaje)
 
-        # Volver a analizar los datos después de los cambios
+        # Volver a analizar después de los cambios
         self.actualizar_analisis()
 
         return mensajes
@@ -118,49 +142,60 @@ class ProcesoPreparacion:
             identificador = decision["id"]
             problema = decision["recomendacion"]["problema"]
 
-            if problema == "Filas completamente vacías":
-                mensaje = self.sesion.eliminar_filas_vacias()
-            elif problema == "Columnas completamente vacías":
-                mensaje = self.sesion.eliminar_columnas_vacias()
-            elif problema == "Espacios en nombres de columnas":
-                mensaje = self.sesion.normalizar_nombres_columnas()
-            elif problema == "Filas duplicadas":
-                mensaje = self.sesion.eliminar_duplicados()
-            else:
-                mensajes.append(
-                    f"No existe una operacion implemetada para: {problema}"
-                )
+            # Identificar la operación correspondiente
+            operacion = OPERACIONES_DISPONIBLES.get(problema)
 
-            # Registrar la operación como ejecutada
+            # No marcar como ejecutada una operación no implementada
+            if operacion is None:
+                mensajes.append(
+                    f"No existe una operación implementada para: {problema}"
+                )
+                continue
+
+            # Ejecutar la operación
+            metodo = getattr(self.sesion, operacion)
+            mensaje = metodo()
+
+            # Registrar la ejecución
             self.gestor_decisiones.marcar_ejecutada(identificador)
 
             mensajes.append(mensaje)
 
-        # Actaulizar el diagnostico y las recomendaciones
+        # Actualizar el diagnóstico y las recomendaciones
         self.actualizar_analisis()
 
         return mensajes
 
     def previsualizar_recomendacion(self, identificador):
+
         """
-        Previsualiza una recomendacion concreta mediante su ID.
+        Previsualiza una recomendación concreta mediante su ID.
         No modifica los datos ni ejecuta la operación.
         """
 
-        decision = self.gestor_decisiones.obtener_decision(identificador)
+        decision = self.gestor_decisiones.obtener_decision(
+            identificador
+        )
 
+        # Comprobar el estado de la recomendación
         if decision["estado"] not in ("pendiente", "aceptada"):
             raise ValueError(
-                "Solo se pueden previsualizar recomendaciones pendientes o aceptadas."
+                "Solo se pueden previsualizar recomendaciones "
+                "pendientes o aceptadas."
             )
 
         problema = decision["recomendacion"]["problema"]
+
+        # Identificar la operación
         operacion = OPERACIONES_DISPONIBLES.get(problema)
 
         if operacion is None:
             return {
                 "valido": False,
-                "mensaje": f"No existe una operación implementada para: {problema}"
+                "mensaje": (
+                    f"No existe una operación implementada para: {problema}"
+                )
             }
-        
+
+        # Generar la previsualización sin modificar los datos
         return self.sesion.previsualizar_operacion(operacion)
