@@ -127,3 +127,39 @@ def test_recomendacion_obsoleta_y_nuevo_id(tmp_path):
     assert decisiones[0]["estado"] == "obsoleta"
     assert decisiones[1]["id"] == 2
     assert decisiones[1]["estado"] == "pendiente"
+
+def test_no_ejecutar_version_aceptada_obsoleta(tmp_path):
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100]
+    })
+
+    archivo = tmp_path / "datos.csv"
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    proceso.aceptar_recomendacion(1)
+
+    proceso.sesion.actual = pd.concat(
+        [
+            proceso.sesion.actual,
+            proceso.sesion.actual.iloc[[0]]
+        ],
+        ignore_index=True
+    )
+
+    proceso.actualizar_analisis()
+
+    decision_anterior = proceso.gestor_decisiones.obtener_decision(1)
+
+    assert decision_anterior["estado"] == "obsoleta"
+
+    proceso.ejecutar_recomendaciones_aceptadas()
+
+    assert len(proceso.sesion.actual) == 4
+
+    decision_nueva = proceso.gestor_decisiones.obtener_decision(2)
+
+    assert decision_nueva["estado"] == "pendiente"

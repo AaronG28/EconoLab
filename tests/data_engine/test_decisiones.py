@@ -278,3 +278,65 @@ def test_registrar_recomendacion_crea_version_nueva():
     assert decision_nueva["version"] == 2
     assert decision_original["recomendacion"]["cantidad"] == 5
     assert decision_nueva["recomendacion"]["cantidad"] == 8
+    assert decision_original["estado"] == "obsoleta"
+    assert decision_nueva["estado"] == "pendiente"
+
+def test_version_anterior_no_sigue_vigente():
+    gestor = GestorDecisiones([])
+
+    anterior = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    nueva = anterior.copy()
+    nueva["cantidad"] = 8
+
+    id_original = gestor.registrar_recomendacion(anterior)
+    id_nuevo = gestor.registrar_recomendacion(nueva)
+
+    version_vigente = gestor.obtener_version_vigente(
+        "Filas duplicadas"
+    )
+
+    assert version_vigente["id"] == id_nuevo
+    assert version_vigente["version"] == 2
+
+    assert gestor.obtener_version_vigente(
+        "Problema inexistente"
+    ) is None
+
+    assert gestor.obtener_decision(id_original)["estado"] == "obsoleta"
+
+def test_version_aceptada_se_invalida_al_ser_sustituida():
+    gestor = GestorDecisiones([])
+
+    anterior = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    nueva = anterior.copy()
+    nueva["cantidad"] = 8
+
+    id_original = gestor.registrar_recomendacion(anterior)
+
+    gestor.aceptar(id_original)
+
+    id_nuevo = gestor.registrar_recomendacion(nueva)
+
+    decision_original = gestor.obtener_decision(id_original)
+    decision_nueva = gestor.obtener_decision(id_nuevo)
+
+    assert decision_original["estado"] == "obsoleta"
+    assert decision_nueva["estado"] == "pendiente"
+
+    assert gestor.obtener_version_vigente(
+        "Filas duplicadas"
+    )["id"] == id_nuevo

@@ -128,6 +128,19 @@ class ProcesoPreparacion:
             identificador = decision["id"]
             problema = decision["recomendacion"]["problema"]
 
+            # Comprobar que la decisión corresponde a la ultima version vigente.
+            version_vigente = (
+                self.gestor_decisiones.obtener_version_vigente(
+                    problema 
+                )
+            )
+
+            if (
+                version_vigente is None
+                or version_vigente["id"] != identificador
+            ):
+                continue
+
             # Identificar la operación correspondiente
             operacion = OPERACIONES_DISPONIBLES.get(problema)
 

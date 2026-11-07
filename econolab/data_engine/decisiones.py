@@ -16,6 +16,33 @@ class GestorDecisiones:
 
         self.agregar_recomendaciones(recomendaciones)
 
+    def obtener_version_vigente(self, problema):
+        """
+        Devuelve la última versión de un problema si sigue vigente.
+
+        Si no existe o la última versión está obsoleta,
+        devuelve None.
+        """
+
+        versiones = [
+            decision
+            for decision in self.decisiones.values()
+            if decision["recomendacion"]["problema"] == problema
+        ]
+
+        if not versiones:
+            return None
+
+        ultima_version = max(
+            versiones,
+            key=lambda decision: decision["version"]
+        )
+
+        if ultima_version["estado"] == "obsoleta":
+            return None
+
+        return ultima_version
+
     def _recomendaciones_equivalentes(self, anterior, nueva):
         """"
         Comprueba si dos recomendaciones tienen el mismo contenido.
@@ -34,39 +61,56 @@ class GestorDecisiones:
         )
 
     def registrar_recomendacion(self, recomendacion):
-        """"
-        Registra una recomendacion nueva o una nueva version
+        """
+        Registra una recomendación nueva o una nueva versión
         de un problema existente.
+
+        Si el contenido cambia, la versión anterior queda obsoleta.
         """
 
         problema = recomendacion["problema"]
 
-        versiones_anteriores = [
-            decision
-            for decision in self.decisiones.values()
-            if (
-                decision["recomendacion"]["problema"] == problema
-                and decision["estado"] != "obsoleta"
-            )
-        ]
-        
-        if not versiones_anteriores:
-            return self.agregar_recomendaciones([recomendacion])[0]
+        ultima_version = self.obtener_version_vigente(problema)
 
-        ultima_version = max(
-            versiones_anteriores,
-            key=lambda decision: decision["version"]
-        )
+        # Si existe una versión vigente y el contenido no cambia,
+        # conservamos su ID.
+        if ultima_version is not None:
 
-        if self._recomendaciones_equivalentes(
-            ultima_version["recomendacion"],
-            recomendacion
-        ):
-            return ultima_version["id"]
+            if self._recomendaciones_equivalentes(
+                ultima_version["recomendacion"],
+                recomendacion
+            ):
+                return ultima_version["id"]
 
-        nueva_version = ultima_version["version"] + 1
+            # El contenido ha cambiado.
+            # Invalidamos la versión anterior.
+            if ultima_version["estado"] in (
+                "pendiente",
+                "aceptada",
+                "pospuesta"
+            ):
+                self.marcar_obsoleta(ultima_version["id"])
+
+            nueva_version = ultima_version["version"] + 1
+
+        else:
+            # Recuperamos la última versión histórica del problema.
+            versiones_historicas = [
+                decision
+                for decision in self.decisiones.values()
+                if decision["recomendacion"]["problema"] == problema
+            ]
+
+            if versiones_historicas:
+                nueva_version = max(
+                    decision["version"]
+                    for decision in versiones_historicas
+                ) + 1
+            else:
+                nueva_version = 1
 
         identificador = self.siguiente_id
+
         self.decisiones[identificador] = {
             "id": identificador,
             "version": nueva_version,
@@ -75,6 +119,7 @@ class GestorDecisiones:
         }
 
         self.siguiente_id += 1
+
         return identificador
 
     def agregar_recomendaciones(self, recomendaciones):
