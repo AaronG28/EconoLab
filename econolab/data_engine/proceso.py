@@ -32,25 +32,20 @@ class ProcesoPreparacion:
         self.actualizar_analisis()
 
     def actualizar_analisis(self):
+        self.diagnostico = diagnosticar_datos(self.sesion.actual)
 
-        # Diagnosticar el estado actual
-        self.diagnostico = diagnosticar_datos(
-            self.sesion.actual
-        )
-
-        # Generar las recomendaciones actuales
         self.recomendaciones = generar_recomendaciones(
             self.sesion.actual,
             self.diagnostico
         )
 
-        # Identificar los problemas que siguen presentes
         problemas_actuales = {
             recomendacion["problema"]
             for recomendacion in self.recomendaciones
         }
 
-        # Marcar como obsoletas las recomendaciones que ya no son relevantes
+        # 1. Marcar como obsoletas las recomendaciones
+        # activas cuyos problemas han desaparecido.
         for decision in self.gestor_decisiones.obtener_decisiones():
 
             problema = decision["recomendacion"]["problema"]
@@ -59,23 +54,14 @@ class ProcesoPreparacion:
                 decision["estado"] in ("pendiente", "aceptada", "pospuesta")
                 and problema not in problemas_actuales
             ):
-                self.gestor_decisiones.marcar_obsoleta(
-                    decision["id"])
+                self.gestor_decisiones.marcar_obsoleta(decision["id"])
 
-        # Detectar únicamente problemas nuevos
-        nuevas_recomendaciones = [
-            recomendacion
-            for recomendacion in self.recomendaciones
-            if recomendacion["problema"] not in self._problemas_anteriores
-        ]
-
-        # Incorporar las nuevas recomendaciones al gestor
-        self.gestor_decisiones.agregar_recomendaciones(
-            nuevas_recomendaciones
-        )
-
-        # Actualizar los problemas detectados
-        self._problemas_anteriores = problemas_actuales
+        # 2. Registrar las recomendaciones actuales.
+        # El gestor decidirá si conserva la versión o crea otra.
+        for recomendacion in self.recomendaciones:
+            self.gestor_decisiones.registrar_recomendacion(
+                recomendacion
+            )
 
     def obtener_estado(self):
 

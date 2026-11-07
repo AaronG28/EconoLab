@@ -16,6 +16,67 @@ class GestorDecisiones:
 
         self.agregar_recomendaciones(recomendaciones)
 
+    def _recomendaciones_equivalentes(self, anterior, nueva):
+        """"
+        Comprueba si dos recomendaciones tienen el mismo contenido.
+        """
+        campos_comparables = (
+            "problema",
+            "cantidad",
+            "gravedad",
+            "accion",
+            "automatico"
+        )
+
+        return all(
+            anterior.get(campo) == nueva.get(campo)
+            for campo in campos_comparables
+        )
+
+    def registrar_recomendacion(self, recomendacion):
+        """"
+        Registra una recomendacion nueva o una nueva version
+        de un problema existente.
+        """
+
+        problema = recomendacion["problema"]
+
+        versiones_anteriores = [
+            decision
+            for decision in self.decisiones.values()
+            if (
+                decision["recomendacion"]["problema"] == problema
+                and decision["estado"] != "obsoleta"
+            )
+        ]
+        
+        if not versiones_anteriores:
+            return self.agregar_recomendaciones([recomendacion])[0]
+
+        ultima_version = max(
+            versiones_anteriores,
+            key=lambda decision: decision["version"]
+        )
+
+        if self._recomendaciones_equivalentes(
+            ultima_version["recomendacion"],
+            recomendacion
+        ):
+            return ultima_version["id"]
+
+        nueva_version = ultima_version["version"] + 1
+
+        identificador = self.siguiente_id
+        self.decisiones[identificador] = {
+            "id": identificador,
+            "version": nueva_version,
+            "recomendacion": recomendacion.copy(),
+            "estado": "pendiente"
+        }
+
+        self.siguiente_id += 1
+        return identificador
+
     def agregar_recomendaciones(self, recomendaciones):
         """
         Incorpora recomendaciones nuevas sin eliminar las existentes
@@ -28,6 +89,7 @@ class GestorDecisiones:
             identificador = self.siguiente_id
             self.decisiones[identificador] = {
                 "id": identificador,
+                "version": 1,
                 "recomendacion": recomendacion.copy(),
                 "estado": "pendiente"
             }
@@ -66,6 +128,7 @@ class GestorDecisiones:
         return [
             {
                 "id": decision["id"],
+                "version": decision["version"],
                 "recomendacion": decision["recomendacion"].copy(),
                 "estado": decision["estado"]
             }
@@ -84,6 +147,7 @@ class GestorDecisiones:
         decision = self.decisiones[identificador]
         return {
             "id": decision["id"],
+            "version": decision["version"],
             "recomendacion": decision["recomendacion"].copy(),
             "estado": decision["estado"]
         }

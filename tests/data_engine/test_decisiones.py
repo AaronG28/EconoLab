@@ -163,3 +163,118 @@ def test_marcar_obsoleta_no_permite_decision_rechazada():
 
     with pytest.raises(ValueError):
         gestor.marcar_obsoleta(1)
+
+def test_recomendaciones_equivalentes():
+    gestor = GestorDecisiones([])
+
+    anterior = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    nueva = anterior.copy()
+
+    assert gestor._recomendaciones_equivalentes(anterior, nueva)
+
+
+def test_recomendaciones_diferentes():
+    gestor = GestorDecisiones([])
+
+    anterior = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    nueva = anterior.copy()
+    nueva["cantidad"] = 8
+
+    assert not gestor._recomendaciones_equivalentes(anterior, nueva)
+
+def test_recomendacion_inicia_en_version_1():
+    gestor = GestorDecisiones([
+        {
+            "problema": "Filas duplicadas",
+            "cantidad": 5,
+            "gravedad": "Media",
+            "accion": "Revisar duplicados",
+            "automatico": False
+        }
+    ])
+
+    decision = gestor.obtener_decision(1)
+
+    assert decision["version"] == 1
+    assert decision["id"] == 1
+
+    decisiones = gestor.obtener_decisiones()
+
+    assert decisiones[0]["version"] == 1
+
+def test_registrar_recomendacion_nueva():
+    gestor = GestorDecisiones([])
+
+    recomendacion = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    identificador = gestor.registrar_recomendacion(recomendacion)
+
+    decision = gestor.obtener_decision(identificador)
+
+    assert identificador == 1
+    assert decision["version"] == 1
+
+
+def test_registrar_recomendacion_identica():
+    gestor = GestorDecisiones([])
+
+    recomendacion = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    id_original = gestor.registrar_recomendacion(recomendacion)
+    id_repetido = gestor.registrar_recomendacion(recomendacion)
+
+    assert id_original == id_repetido
+    assert len(gestor.obtener_decisiones()) == 1
+
+
+def test_registrar_recomendacion_crea_version_nueva():
+    gestor = GestorDecisiones([])
+
+    anterior = {
+        "problema": "Filas duplicadas",
+        "cantidad": 5,
+        "gravedad": "Media",
+        "accion": "Revisar duplicados",
+        "automatico": False
+    }
+
+    nueva = anterior.copy()
+    nueva["cantidad"] = 8
+
+    id_original = gestor.registrar_recomendacion(anterior)
+    id_nuevo = gestor.registrar_recomendacion(nueva)
+
+    decision_original = gestor.obtener_decision(id_original)
+    decision_nueva = gestor.obtener_decision(id_nuevo)
+
+    assert id_original != id_nuevo
+    assert decision_original["version"] == 1
+    assert decision_nueva["version"] == 2
+    assert decision_original["recomendacion"]["cantidad"] == 5
+    assert decision_nueva["recomendacion"]["cantidad"] == 8
