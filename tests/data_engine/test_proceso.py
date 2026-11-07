@@ -240,3 +240,155 @@ def test_recomendacion_aceptada_se_ejecuta_una_sola_vez(tmp_path):
 
     assert mensajes_segunda == []
     assert len(proceso.sesion.actual) == 2
+
+
+def test_operacion_fallida_no_se_registra_como_ejecutada(
+    tmp_path,
+    monkeypatch
+):
+
+    import pytest
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100]
+    })
+
+    archivo = tmp_path / "datos.csv"
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    # Aceptar la recomendación de eliminar duplicados
+    proceso.aceptar_recomendacion(1)
+
+    # Simular un fallo durante la operación
+    def operacion_fallida():
+        raise RuntimeError("Fallo simulado durante la limpieza")
+
+    monkeypatch.setattr(
+        proceso.sesion,
+        "eliminar_duplicados",
+        operacion_fallida
+    )
+
+    # La ejecución debe propagar el error
+    with pytest.raises(
+        RuntimeError,
+        match="Fallo simulado durante la limpieza"
+    ):
+        proceso.ejecutar_recomendaciones_aceptadas()
+
+    # La recomendación no debe quedar como ejecutada
+    decision = proceso.gestor_decisiones.obtener_decision(1)
+
+    assert decision["estado"] == "aceptada"
+
+    # Los datos originales deben permanecer intactos
+    assert len(proceso.sesion.actual) == 3
+
+def test_fallo_parcial_recupera_datos_anteriores(tmp_path, monkeypatch):
+    import pytest
+
+    archivo = tmp_path / "datos.csv"
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia", "España"],
+        "PIB": [100, 200, 100],
+    })
+
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    # Aceptamos la recomendación de eliminar duplicados
+    proceso.aceptar_recomendacion(1)
+
+    datos_originales = proceso.sesion.actual.copy(deep=True)
+
+    def operacion_fallida_parcial():
+        # Simulamos el registro del estado previo
+        proceso.sesion._guardar_estado("eliminar_duplicados")
+
+        # La operación modifica los datos...
+        proceso.sesion.actual = proceso.sesion.actual.iloc[:1].copy()
+
+        # ...pero después falla
+        raise RuntimeError("Fallo después de modificar los datos")
+
+    monkeypatch.setattr(
+        proceso.sesion,
+        "eliminar_duplicados",
+        operacion_fallida_parcial,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Fallo después de modificar los datos",
+    ):
+        proceso.ejecutar_recomendaciones_aceptadas()
+
+    # Los datos deberían haberse recuperado
+    pd.testing.assert_frame_equal(
+        proceso.sesion.actual,
+        datos_originales,
+    )
+
+    # La decisión no debe marcarse como ejecutada
+    assert proceso.gestor_decisiones.obtener_decision(1)["estado"] == "aceptada"
+
+def test_fallo_parcial_automatico_recupera_datos(
+    tmp_path,
+    monkeypatch,
+):
+    import pytest
+
+    archivo = tmp_path / "datos.csv"
+
+    datos = pd.DataFrame({
+        "Pais": ["España", "Francia"],
+        "columna_vacia": [None, None],
+    })
+
+    datos.to_csv(archivo, index=False)
+
+    proceso = ProcesoPreparacion(archivo)
+
+    datos_originales = proceso.sesion.actual.copy(deep=True)
+
+    def operacion_fallida_parcial():
+        # Registrar el estado anterior
+        proceso.sesion._guardar_estado(
+            "eliminar_columnas_vacias"
+        )
+
+        # Simular una modificación parcial
+        proceso.sesion.actual = (
+            proceso.sesion.actual.drop(
+                columns=["columna_vacia"]
+            )
+        )
+
+        # Simular un fallo
+        raise RuntimeError(
+            "Fallo durante la limpieza automática"
+        )
+
+    monkeypatch.setattr(
+        proceso.sesion,
+        "eliminar_columnas_vacias",
+        operacion_fallida_parcial,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Fallo durante la limpieza automática",
+    ):
+        proceso.aplicar_automaticas()
+
+    # Comprobar que los datos se recuperaron
+    pd.testing.assert_frame_equal(
+        proceso.sesion.actual,
+        datos_originales,
+    )
+
